@@ -17,6 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // File Upload Setup
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
+const redirect_uri = 'http://localhost:8000/callback';
 
 // Scopes
 const SCOPES = ['https://mail.google.com/'];
@@ -39,8 +40,8 @@ async function getService() {
   }
 
   const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-  const { client_secret, client_id, redirect_uris } = credentials.installed;
-  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+  const { client_secret, client_id} = credentials.installed;
+  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
   // Check if the token file exists
   if (fs.existsSync(tokenFile)) {
@@ -82,8 +83,8 @@ app.get('/authenticate', async (req, res) => {
     }
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_secret, client_id} = credentials.installed;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -106,8 +107,8 @@ app.get('/callback', async (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_secret, client_id} = credentials.installed;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     // Exchange the authorization code for an access token
     const { tokens } = await oAuth2Client.getToken(code);
@@ -130,8 +131,8 @@ app.post('/save-token', async (req, res) => {
     const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_secret, client_id } = credentials.installed;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
