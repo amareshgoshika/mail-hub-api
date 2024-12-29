@@ -65,7 +65,7 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   });
 });
 
-app.get('/authenticate', (req, res) => {
+app.get('/authenticate', async (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
     if (!fs.existsSync(credentialsFile)) {
@@ -107,18 +107,48 @@ app.get('/callback', async (req, res) => {
     const tokenFilePath = path.join(TOKEN_DIR, 'token.pickle');
     fs.writeFileSync(tokenFilePath, JSON.stringify(tokens));
 
-    res.download(tokenFilePath, 'token.pickle', (err) => {
-
-      if (err) {
-        console.error('Error downloading the file:', err);
-        res.status(500).send('Error downloading the token.pickle');
-      }
-    });
+    // res.download(tokenFilePath, 'token.pickle');
+    res.send(`
+      <html>
+        <body>
+          <script>
+            // Trigger download
+            window.location.href = '/download?filePath=${encodeURIComponent(tokenFilePath)}'; 
+            // Redirect to homepage after a delay
+            setTimeout(function() {
+              window.location.href = 'http://localhost:3000';
+            }, 2000); // Redirect after 2 seconds, adjust timing as needed
+          </script>
+        </body>
+      </html>
+    `);
     
   } catch (error) {
     console.error('Error in /callback:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+app.get('/download', (req, res) => {
+  const { filePath } = req.query;
+
+  if (!filePath) {
+    return res.status(400).send('File path is missing.');
+  }
+
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.error('File not found:', filePath);
+      return res.status(404).send('File not found.');
+    }
+
+    res.download(filePath, 'token.pickle', (err) => {
+      if (err) {
+        console.error('Error during download:', err);
+        res.status(500).send('Error during file download.');
+      }
+    });
+  });
 });
 
 
