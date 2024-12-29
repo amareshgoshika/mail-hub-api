@@ -10,29 +10,23 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = 8000;
 
-// Middleware
 app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
 
-// File Upload Setup
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
 const redirect_uri = 'http://localhost:8000/callback';
 
-// Scopes
 const SCOPES = ['https://mail.google.com/'];
 
-// Directory to save token
 const TOKEN_DIR = path.join(__dirname, 'tokens');
 
-// Create token directory if it doesn't exist
 if (!fs.existsSync(TOKEN_DIR)) {
   fs.mkdirSync(TOKEN_DIR);
 }
 
-// Function to get the Gmail API service
 async function getService() {
   const credentialsFile = path.join(__dirname, 'credentials.json');
   const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
@@ -45,7 +39,6 @@ async function getService() {
   const { client_secret, client_id} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
-  // Check if the token file exists
   if (fs.existsSync(tokenFile)) {
     const token = fs.readFileSync(tokenFile);
     oAuth2Client.setCredentials(JSON.parse(token));
@@ -56,7 +49,6 @@ async function getService() {
   return google.gmail({ version: 'v1', auth: oAuth2Client });
 }
 
-// Route: Upload Credentials File
 app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -65,7 +57,6 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   const uploadedPath = req.file.path;
   const newPath = path.join(__dirname, 'credentials.json');
 
-  // Move the uploaded file to the project root as 'credentials.json'
   fs.rename(uploadedPath, newPath, (err) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to save credentials file' });
@@ -74,18 +65,15 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   });
 });
 
-// Route: Authenticate User (Generates token.pickle)
-app.get('/authenticate', async (req, res) => {
+app.get('/authenticate', (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
-    const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
-
     if (!fs.existsSync(credentialsFile)) {
       return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
     }
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id} = credentials.installed;
+    const { client_secret, client_id } = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -94,14 +82,15 @@ app.get('/authenticate', async (req, res) => {
     });
 
     res.json({ authUrl });
+
   } catch (error) {
+    console.error('Error in /authenticate:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Step to handle OAuth2 callback
 app.get('/callback', async (req, res) => {
-  const code = req.query.code; // Get the authorization code from the query params
+  const code = req.query.code; 
   if (!code) {
     return res.status(400).send('Missing authorization code');
   }
@@ -109,23 +98,30 @@ app.get('/callback', async (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id} = credentials.installed;
+    const { client_secret, client_id } = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
-    // Exchange the authorization code for an access token
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    // Save the token in the 'tokens' directory
-    fs.writeFileSync(path.join(TOKEN_DIR, 'token.pickle'), JSON.stringify(tokens));
+    const tokenFilePath = path.join(TOKEN_DIR, 'token.pickle');
+    fs.writeFileSync(tokenFilePath, JSON.stringify(tokens));
 
-    res.send('Authentication successful! You can now use the app.');
+    res.download(tokenFilePath, 'token.pickle', (err) => {
+
+      if (err) {
+        console.error('Error downloading the file:', err);
+        res.status(500).send('Error downloading the token.pickle');
+      }
+    });
+    
   } catch (error) {
+    console.error('Error in /callback:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Route: Save the token after authentication
+
 app.post('/save-token', async (req, res) => {
   try {
     const code = req.body.code;
@@ -147,7 +143,6 @@ app.post('/save-token', async (req, res) => {
   }
 });
 
-// Route: Send Email
 app.post('/send-email', upload.single('attachment'), async (req, res) => {
   try {
     const { recipientEmail, subject, emailBody } = req.body;
@@ -173,7 +168,6 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
   }
 });
 
-// Function to create the raw email message
 function createEmail(recipientEmail, subject, emailBody, attachment) {
   const boundary = "__boundary__";
   const body = [
