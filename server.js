@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const userApi = require('./user-api');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
@@ -13,6 +14,7 @@ const PORT = 8000;
 app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/api', userApi);
 
 // File Upload Setup
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
