@@ -10,14 +10,14 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = 8000;
 
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({ origin: process.env.REACT_APP_FRONTEND_URL }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
 
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
-const redirect_uri = 'http://localhost:8000/callback';
+const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
 
 const SCOPES = ['https://mail.google.com/'];
 
@@ -116,7 +116,7 @@ app.get('/callback', async (req, res) => {
             window.location.href = '/download?filePath=${encodeURIComponent(tokenFilePath)}'; 
             // Redirect to homepage after a delay
             setTimeout(function() {
-              window.location.href = 'http://localhost:3000';
+              window.location.href = '${process.env.REACT_APP_FRONTEND_URL}';
             }, 2000); // Redirect after 2 seconds, adjust timing as needed
           </script>
         </body>
