@@ -50,7 +50,7 @@ async function getService() {
   }
 
   const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-  const { client_secret, client_id} = credentials.installed;
+  const { client_secret, client_id} = credentials.web;
   const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
   if (fs.existsSync(tokenFile)) {
@@ -87,7 +87,7 @@ app.get('/authenticate', async (req, res) => {
     }
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id } = credentials.installed;
+    const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -112,7 +112,7 @@ app.get('/callback', async (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id } = credentials.installed;
+    const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const { tokens } = await oAuth2Client.getToken(code);
@@ -173,7 +173,7 @@ app.post('/save-token', async (req, res) => {
     const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id } = credentials.installed;
+    const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const { tokens } = await oAuth2Client.getToken(code);
