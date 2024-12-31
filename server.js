@@ -40,9 +40,9 @@ if (!fs.existsSync(TOKEN_DIR)) {
   fs.mkdirSync(TOKEN_DIR);
 }
 
-async function getService() {
-  const credentialsFile = path.join(__dirname, 'credentials.json');
-  const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
+async function getService(userEmail) {
+  const credentialsFile = path.join(__dirname, 'uploads', userEmail, 'credentials.json');
+  const tokenFile = path.join(__dirname, 'uploads', userEmail, 'token.pickle');
 
   if (!fs.existsSync(credentialsFile)) {
     throw new Error("Credentials file 'credentials.json' not found. Upload it first.");
@@ -205,14 +205,14 @@ app.post('/save-token', async (req, res) => {
 
 app.post('/send-email', upload.single('attachment'), async (req, res) => {
   try {
-    const { recipientEmail, subject, emailBody } = req.body;
+    const { recipientEmail, subject, emailBody, userEmail } = req.body;
     const attachment = req.file;
 
     if (!recipientEmail || !subject || !emailBody) {
       return res.status(400).json({ error: 'Recipient email, subject, and email body are required' });
     }
 
-    const service = await getService();
+    const service = await getService(userEmail);
 
     const rawMessage = createEmail(recipientEmail, subject, emailBody, attachment);
     const response = await service.users.messages.send({
