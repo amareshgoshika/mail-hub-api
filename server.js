@@ -10,7 +10,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = 8000;
 
-app.use(cors({ origin: process.env.REACT_APP_FRONTEND_URL }));
+app.use(cors({ origin: 'https://mailhub-ui.netlify.app' }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
@@ -244,10 +244,6 @@ function createEmail(recipientEmail, subject, emailBody, attachment) {
 }
 
 // Start the server
-// app.listen(PORT, () => {
-//   console.log(`Server running at http://localhost:${PORT}`);
-// });
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running at http://0.0.0.0:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
 });
