@@ -23,7 +23,6 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// app.use(cors({ origin: 'https://mailhub-ui.netlify.app' }));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -82,12 +81,14 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
 app.get('/authenticate', async (req, res) => {
   try {
     const credentialsFile = path.join(__dirname, 'credentials.json');
+    const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
+
     if (!fs.existsSync(credentialsFile)) {
       return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
     }
 
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id } = credentials.web;
+    const { client_secret, client_id} = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
 
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -96,9 +97,7 @@ app.get('/authenticate', async (req, res) => {
     });
 
     res.json({ authUrl });
-
   } catch (error) {
-    console.error('Error in /authenticate:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -119,16 +118,14 @@ app.get('/callback', async (req, res) => {
     oAuth2Client.setCredentials(tokens);
 
     const tokenFilePath = path.join(TOKEN_DIR, 'token.pickle');
-    fs.writeFileSync(tokenFilePath, JSON.stringify(tokens));
 
-    // res.download(tokenFilePath, 'token.pickle');
+    fs.writeFileSync(path.join(TOKEN_DIR, 'token.pickle'), JSON.stringify(tokens));
+
     res.send(`
       <html>
         <body>
           <script>
-            // Trigger download
-            window.location.href = '/download?filePath=${encodeURIComponent(tokenFilePath)}'; 
-            // Redirect to homepage after a delay
+            alert('Token generated successfully.');
             setTimeout(function() {
               window.location.href = '${process.env.REACT_APP_FRONTEND_URL}';
             }, 2000); // Redirect after 2 seconds, adjust timing as needed
