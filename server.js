@@ -67,21 +67,37 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  const uploadedPath = req.file.path;
-  const newPath = path.join(__dirname, 'credentials.json');
+  const { email } = req.body;
 
-  fs.rename(uploadedPath, newPath, (err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to save credentials file' });
+  const folderPath = path.join(__dirname, 'uploads', email);
+
+  fs.mkdir(folderPath, { recursive: true }, (mkdirErr) => {
+    if (mkdirErr) {
+      return res.status(500).json({ error: 'Failed to create user folder' });
     }
-    res.json({ message: 'Credentials uploaded successfully' });
+
+    const uploadedPath = req.file.path;
+    const newPath = path.join(folderPath, 'credentials.json');
+
+    fs.rename(uploadedPath, newPath, (renameErr) => {
+      if (renameErr) {
+        return res.status(500).json({ error: 'Failed to save credentials file' });
+      }
+
+      res.json({ message: 'Credentials uploaded successfully' });
+    });
   });
 });
 
-app.get('/authenticate', async (req, res) => {
+app.post('/authenticate', async (req, res) => {
   try {
-    const credentialsFile = path.join(__dirname, 'credentials.json');
-    const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    const userDir = path.join(__dirname, 'uploads', email);
+    const credentialsFile = path.join(userDir, 'credentials.json');
 
     if (!fs.existsSync(credentialsFile)) {
       return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
@@ -94,9 +110,10 @@ app.get('/authenticate', async (req, res) => {
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
+      state: email
     });
 
-    res.json({ authUrl });
+    res.json({ authUrl, email });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -104,12 +121,14 @@ app.get('/authenticate', async (req, res) => {
 
 app.get('/callback', async (req, res) => {
   const code = req.query.code; 
+  const email = req.query.state; 
   if (!code) {
     return res.status(400).send('Missing authorization code');
   }
 
   try {
-    const credentialsFile = path.join(__dirname, 'credentials.json');
+    const userDir = path.join(__dirname, 'uploads', email);
+    const credentialsFile = path.join(userDir, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
     const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
@@ -117,9 +136,9 @@ app.get('/callback', async (req, res) => {
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    const tokenFilePath = path.join(TOKEN_DIR, 'token.pickle');
+    const tokenFilePath = path.join(userDir, 'token.pickle');
 
-    fs.writeFileSync(path.join(TOKEN_DIR, 'token.pickle'), JSON.stringify(tokens));
+    fs.writeFileSync(path.join(userDir, 'token.pickle'), JSON.stringify(tokens));
 
     res.send(`
       <html>
@@ -128,7 +147,7 @@ app.get('/callback', async (req, res) => {
             alert('Token generated successfully.');
             setTimeout(function() {
               window.location.href = '${process.env.REACT_APP_FRONTEND_URL}';
-            }, 2000); // Redirect after 2 seconds, adjust timing as needed
+            }, 200); // Redirect after 2 seconds, adjust timing as needed
           </script>
         </body>
       </html>
