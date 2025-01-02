@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const userApi = require('./user-api');
+const mailFormatsAPI = require('./mail-formats');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
@@ -27,6 +28,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
+app.use('/mailformats', mailFormatsAPI);
 
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
