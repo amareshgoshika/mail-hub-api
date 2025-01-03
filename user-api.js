@@ -13,6 +13,14 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
+    const userQuerySnapshot = await db.collection('users')
+      .where('email', '==', email)
+      .get();
+
+    if (!userQuerySnapshot.empty) {
+      return res.status(400).json({ message: 'User is already registered' });
+    }
+
     // Save user data to Firestore along with the Google Drive file URL
     await db.collection('users').add({
       name,

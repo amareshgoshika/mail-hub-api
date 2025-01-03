@@ -7,8 +7,6 @@ router.post('/save-mail-formats', async (req, res) => {
   try {
     const { formatName, subject, body, userEmail } = req.body;
 
-    console.log(formatName, subject, body, userEmail);
-
     // Validate input
     if (!formatName || !subject || !body || !userEmail) {
       return res.status(400).json({ message: 'Format Name, Subject, and Body are required' });
@@ -32,7 +30,6 @@ router.post('/save-mail-formats', async (req, res) => {
 
 router.get('/get-mail-formats', async (req, res) => {
     const userEmail = req.query.email;
-    console.log(userEmail);
 
     if (!userEmail) {
         return res.status(400).json({ message: 'User email is required' });
