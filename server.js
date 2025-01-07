@@ -7,6 +7,8 @@ const path = require('path');
 const { google } = require('googleapis');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { db } = require('./firebase-admin');
+const admin = require('firebase-admin');
 
 const app = express();
 const PORT = 8000;
@@ -214,14 +216,51 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       return res.status(400).json({ error: 'Recipient email, subject, and email body are required' });
     }
 
-    const service = await getService(userEmail);
+    // Fetch user and check credits
+    const userQuerySnapshot = await db.collection('users').where('email', '==', userEmail).get();
+    
+    if (userQuerySnapshot.empty) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
+    const userRef = userQuerySnapshot.docs[0].ref;
+    const user = userQuerySnapshot.docs[0].data();
+
+    if (user.credits <= 0) {
+      return res.status(400).json({ message: 'No credits available' });
+    }
+
+    // Send email
+    const service = await getService(userEmail);
     const rawMessage = createEmail(recipientEmail, subject, emailBody, attachment);
+    
     const response = await service.users.messages.send({
       userId: 'me',
       requestBody: {
         raw: rawMessage,
       },
+    });
+
+    const checkVendorEmailQuery = await db.collection('vendorEmails')
+      .where('recipientEmail', '==', recipientEmail)
+      .get();
+
+    if (checkVendorEmailQuery.empty) {
+      await db.collection('vendorEmails').add({
+        recipientEmail,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    await db.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      const currentCredits = userDoc.data().credits;
+
+      if (currentCredits > 0) {
+        transaction.update(userRef, { credits: currentCredits - 1 });
+      } else {
+        throw new Error('No credits available to deduct');
+      }
     });
 
     res.json({ message: 'Email sent successfully', response });
