@@ -27,6 +27,7 @@ router.post('/register', async (req, res) => {
       email,
       phone,
       password,
+      credits: parseInt('100', 10),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
