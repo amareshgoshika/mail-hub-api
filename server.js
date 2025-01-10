@@ -271,13 +271,6 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
 function createEmail(recipientEmail, subject, emailBody, attachment) {
   const boundary = "__boundary__";
-  const body = [
-    `Content-Type: text/plain; charset="UTF-8"`,
-    `Content-Transfer-Encoding: base64`,
-    `Content-Disposition: inline`,
-    '',
-    Buffer.from(emailBody).toString('base64')
-  ].join('\r\n');
 
   const messageParts = [
     `To: ${recipientEmail}`,
@@ -286,12 +279,11 @@ function createEmail(recipientEmail, subject, emailBody, attachment) {
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
     `--${boundary}`,
-    `Content-Type: text/plain; charset="UTF-8"`,
+    `Content-Type: text/html; charset="UTF-8"`,
     'Content-Transfer-Encoding: 7bit',
     '',
     emailBody,
     '',
-    `--${boundary}`,
   ];
 
   if (attachment && attachment.path) {
@@ -299,18 +291,17 @@ function createEmail(recipientEmail, subject, emailBody, attachment) {
     const fileName = attachment.originalname;
     const fileData = fs.readFileSync(filePath);
     const encodedAttachment = Buffer.from(fileData).toString('base64');
-    messageParts.push(
+    messageParts.push( 
+       `--${boundary}`,
       `Content-Type: application/pdf; name="${fileName}"`,
       `Content-Disposition: attachment; filename="${fileName}"`,
       `Content-Transfer-Encoding: base64`,
       '',
-      encodedAttachment,
-      `--${boundary}--`
+      encodedAttachment
     );
-  } else {
-    console.error('Attachment path is undefined.');
   }
 
+  messageParts.push(`--${boundary}--`);
   return Buffer.from(messageParts.join('\r\n')).toString('base64');
 }
 
