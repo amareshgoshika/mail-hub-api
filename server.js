@@ -148,7 +148,7 @@ app.get('/callback', async (req, res) => {
       <html>
         <body>
           <script>
-            alert('Token generated successfully.');
+            alert('Token generated successfully. Login To Continue.');
             setTimeout(function() {
               window.location.href = '${process.env.REACT_APP_FRONTEND_URL}';
             }, 200); // Redirect after 2 seconds, adjust timing as needed
