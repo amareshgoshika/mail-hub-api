@@ -65,6 +65,28 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.get('/get-user-details', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const userSnapshot = await db.collection('users').where('email', '==', email).get();
+
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    const user = userSnapshot.docs[0].data();
+
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 
 module.exports = router;
