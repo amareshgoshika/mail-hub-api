@@ -19,10 +19,12 @@ const serviceAccount = {
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://mailhub-a728a-default-rtdb.firebaseio.com/', // Replace with your Firebase Realtime Database URL
+  databaseURL: 'https://mailhub-a728a-default-rtdb.firebaseio.com/',
+  storageBucket: 'gs://mailhub-a728a.firebasestorage.app',
 });
 
 // Export the Firestore database instance
 const db = admin.firestore();
+const storage = admin.storage().bucket();
 
-module.exports = { admin, db };
+module.exports = { admin, db, storage };
