@@ -6,11 +6,19 @@ const router = express.Router();
 // POST /register endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone, password, credentials } = req.body;
+    const { name, email, phone, password } = req.body;
 
     // Validate input
-    if (!name || !email || !phone || !password || !credentials) {
+    if (!name || !email || !phone || !password) {
       return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const userQuerySnapshot = await db.collection('users')
+      .where('email', '==', email)
+      .get();
+
+    if (!userQuerySnapshot.empty) {
+      return res.status(400).json({ message: 'User is already registered' });
     }
 
     // Save user data to Firestore along with the Google Drive file URL
@@ -19,7 +27,7 @@ router.post('/register', async (req, res) => {
       email,
       phone,
       password,
-      credentials,
+      credits: parseInt('100', 10),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -29,5 +37,56 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const userSnapshot = await db.collection('users').where('email', '==', email).get();
+
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    const user = userSnapshot.docs[0].data();
+
+    if (password !== user.password) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    res.json({ message: 'Login successful', user: { email: user.email, name: user.name, credits: user.credits } });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/get-user-details', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const userSnapshot = await db.collection('users').where('email', '==', email).get();
+
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    const user = userSnapshot.docs[0].data();
+
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 module.exports = router;
