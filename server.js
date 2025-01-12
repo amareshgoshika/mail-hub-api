@@ -148,7 +148,7 @@ app.get('/callback', async (req, res) => {
       <html>
         <body>
           <script>
-            alert('Token generated successfully.');
+            alert('Token generated successfully. Login To Continue.');
             setTimeout(function() {
               window.location.href = '${process.env.REACT_APP_FRONTEND_URL}';
             }, 200); // Redirect after 2 seconds, adjust timing as needed
@@ -159,6 +159,37 @@ app.get('/callback', async (req, res) => {
     
   } catch (error) {
     console.error('Error in /callback:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/updateToken', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    const dashboardURL = process.env.REACT_APP_FRONTEND_DASHBOARD_URL;
+    const userDir = path.join(__dirname, 'uploads', email);
+    const credentialsFile = path.join(userDir, 'credentials.json');
+
+    if (!fs.existsSync(credentialsFile)) {
+      return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
+    }
+
+    const credentials = JSON.parse(fs.readFileSync(credentialsFile));
+    const { client_secret, client_id} = credentials.web;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, dashboardURL);
+
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+      state: email
+    });
+
+    res.json({ authUrl, email });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
