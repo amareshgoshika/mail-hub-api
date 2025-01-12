@@ -77,11 +77,13 @@ router.delete('/delete-mail-format', async (req, res) => {
       return res.status(404).json({ message: 'Mail format not found' });
     }
 
-    const decodedURL = decodeURIComponent(attachmentURL);
-    const filePath = decodedURL.split('/o/')[1].split('?')[0]; 
-    const fileRef = storage.file(filePath);
-    await fileRef.delete();
-
+    if (attachmentURL) {
+      const decodedURL = decodeURIComponent(attachmentURL);
+      const filePath = decodedURL.split('/o/')[1].split('?')[0]; 
+      const fileRef = storage.file(filePath);
+      await fileRef.delete();
+    }
+   
     await mailFormatRef.delete();
 
     res.status(200).json({ message: 'Mail format deleted successfully' });
