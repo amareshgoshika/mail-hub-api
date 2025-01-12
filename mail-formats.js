@@ -59,4 +59,28 @@ router.get('/get-mail-formats', async (req, res) => {
     }
 });
 
+router.delete('/delete-mail-format', async (req, res) => {
+  const { id } = req.query;
+
+  if (!id) {
+      return res.status(400).json({ message: 'Mail format ID is required' });
+  }
+
+  try {
+      const mailFormatRef = db.collection('mailFormats').doc(id);
+      const doc = await mailFormatRef.get();
+
+      if (!doc.exists) {
+          return res.status(404).json({ message: 'Mail format not found' });
+      }
+
+      await mailFormatRef.delete();
+
+      res.status(200).json({ message: 'Mail format deleted successfully' });
+  } catch (error) {
+      console.error('Error deleting mail format:', error);
+      res.status(500).json({ message: 'Failed to delete mail format11' });
+  }
+});
+
 module.exports = router;
