@@ -1,11 +1,11 @@
 const express = require('express');
 const admin = require('firebase-admin');
-const { db } = require('./firebase-admin'); // Import Firebase Admin
+const { db, storage } = require('./firebase-admin'); 
 const router = express.Router();
 
 router.post('/save-mail-formats', async (req, res) => {
   try {
-    const { formatName, subject, body, userEmail } = req.body;
+    const { formatName, subject, body, userEmail, attachmentURL  } = req.body;
 
     // Validate input
     if (!formatName || !subject || !body || !userEmail) {
@@ -18,6 +18,7 @@ router.post('/save-mail-formats', async (req, res) => {
       subject,
       body,
       userEmail,
+      attachmentURL: attachmentURL || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -61,25 +62,34 @@ router.get('/get-mail-formats', async (req, res) => {
 
 router.delete('/delete-mail-format', async (req, res) => {
   const { id } = req.query;
+  const { attachmentURL } = req.body;
+
 
   if (!id) {
-      return res.status(400).json({ message: 'Mail format ID is required' });
+    return res.status(400).json({ message: 'Mail format ID is required' });
   }
 
   try {
-      const mailFormatRef = db.collection('mailFormats').doc(id);
-      const doc = await mailFormatRef.get();
+    const mailFormatRef = db.collection('mailFormats').doc(id);
+    const doc = await mailFormatRef.get();
 
-      if (!doc.exists) {
-          return res.status(404).json({ message: 'Mail format not found' });
-      }
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Mail format not found' });
+    }
 
-      await mailFormatRef.delete();
+    if (attachmentURL) {
+      const decodedURL = decodeURIComponent(attachmentURL);
+      const filePath = decodedURL.split('/o/')[1].split('?')[0]; 
+      const fileRef = storage.file(filePath);
+      await fileRef.delete();
+    }
+   
+    await mailFormatRef.delete();
 
-      res.status(200).json({ message: 'Mail format deleted successfully' });
+    res.status(200).json({ message: 'Mail format deleted successfully' });
   } catch (error) {
-      console.error('Error deleting mail format:', error);
-      res.status(500).json({ message: 'Failed to delete mail format11' });
+    console.error('Error deleting mail format:', error);
+      res.status(500).json({ message: 'Failed to delete mail format' });
   }
 });
 
