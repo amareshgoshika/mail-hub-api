@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const homeApi = require('./home-api');
 const userApi = require('./user-api');
 const mailFormatsAPI = require('./mail-formats');
 const fs = require('fs');
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
 app.use('/mailformats', mailFormatsAPI);
+app.use('/home', homeApi);
 
 const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
@@ -256,8 +258,14 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
     const userRef = userQuerySnapshot.docs[0].ref;
     const user = userQuerySnapshot.docs[0].data();
+    const userPlan = user.pricingPlan;
 
-    if (user.credits <= 0) {
+    const planQuerySnapshot = await db.collection('pricingPlans').where('name', '==', userPlan).get();
+    const plan = planQuerySnapshot.docs[0].data();
+    const emailsPerDay = plan.emailsPerDay;
+    const availableCredits = emailsPerDay - user.credits;
+
+    if (availableCredits == 0) {
       return res.status(400).json({ message: 'No credits available' });
     }
 
@@ -288,7 +296,7 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       const currentCredits = userDoc.data().credits;
 
       if (currentCredits > 0) {
-        transaction.update(userRef, { credits: currentCredits - 1 });
+        transaction.update(userRef, { credits: currentCredits + 1 });
       } else {
         throw new Error('No credits available to deduct');
       }
