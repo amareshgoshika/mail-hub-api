@@ -133,6 +133,19 @@ app.get('/callback', async (req, res) => {
   }
 
   try {
+    const persistentDiskPath = '/var/data/resumes';
+    const userDirPersistentDisk = path.join(persistentDiskPath, email);
+    const credentialsFilePD = path.join(userDirPersistentDisk, 'credentials.json');
+
+    if (!fs.existsSync(userDirPersistentDisk)) {
+      try {
+        fs.mkdirSync(userDirPersistentDisk, { recursive: true });
+      } catch (dirError) {
+        console.error('Directory creation failed:', dirError);
+        return res.status(500).json({ error: 'Failed to create directory on persistent disk' });
+      }
+    }
+
     const userDir = path.join(__dirname, 'uploads', email);
     const credentialsFile = path.join(userDir, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
@@ -144,7 +157,10 @@ app.get('/callback', async (req, res) => {
 
     const tokenFilePath = path.join(userDir, 'token.pickle');
 
-    fs.writeFileSync(path.join(userDir, 'token.pickle'), JSON.stringify(tokens));
+    // fs.writeFileSync(path.join(userDir, 'token.pickle'), JSON.stringify(tokens));
+
+    const tokenFilePathPD = path.join(userDirPersistentDisk, 'token.pickle');
+    fs.writeFileSync(path.join(userDirPersistentDisk, 'token.pickle'), JSON.stringify(tokens));
 
     res.send(`
       <html>
