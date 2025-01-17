@@ -75,7 +75,7 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
 
   const { email } = req.body;
 
-  const storagePath = process.env.REACT_APP_API_DISK_PATH;
+  const storagePath = '/var/data/resumes';
   const storageFolder = path.join(storagePath, email);
 
   // const folderPath = path.join(__dirname, 'uploads', email);
