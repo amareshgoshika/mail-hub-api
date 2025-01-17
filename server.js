@@ -16,7 +16,7 @@ const PORT = 8000;
 
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = ['http://localhost:3000', 'https://mailhub-ui.netlify.app'];
+    const allowedOrigins = ['http://localhost:3000', 'https://mailhub-ui.netlify.app', 'https://maileazy.com/'];
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
