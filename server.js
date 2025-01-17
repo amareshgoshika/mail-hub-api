@@ -104,8 +104,10 @@ app.post('/authenticate', async (req, res) => {
       return res.status(400).json({ error: 'Email is required.' });
     }
 
-    const userDir = path.join(__dirname, 'uploads', email);
-    const credentialsFile = path.join(userDir, 'credentials.json');
+    const persistentDiskPath = '/var/data/resumes';
+    const userDirPersistentDisk = path.join(persistentDiskPath, email);
+    // const userDir = path.join(__dirname, 'uploads', email);
+    const credentialsFile = path.join(userDirPersistentDisk, 'credentials.json');
 
     if (!fs.existsSync(credentialsFile)) {
       return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
@@ -149,7 +151,7 @@ app.get('/callback', async (req, res) => {
     }
 
     const userDir = path.join(__dirname, 'uploads', email);
-    const credentialsFile = path.join(userDir, 'credentials.json');
+    const credentialsFile = path.join(userDirPersistentDisk, 'credentials.json');
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
     const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
