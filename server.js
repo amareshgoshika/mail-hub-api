@@ -75,15 +75,18 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
 
   const { email } = req.body;
 
-  const folderPath = path.join(__dirname, 'uploads', email);
+  const storagePath = process.env.REACT_APP_API_DISK_PATH;
+  const storageFolder = path.join(storagePath, email);
 
-  fs.mkdir(folderPath, { recursive: true }, (mkdirErr) => {
+  // const folderPath = path.join(__dirname, 'uploads', email);
+
+  fs.mkdir(storageFolder, { recursive: true }, (mkdirErr) => {
     if (mkdirErr) {
       return res.status(500).json({ error: 'Failed to create user folder' });
     }
 
     const uploadedPath = req.file.path;
-    const newPath = path.join(folderPath, 'credentials.json');
+    const newPath = path.join(storageFolder, 'credentials.json');
 
     fs.rename(uploadedPath, newPath, (renameErr) => {
       if (renameErr) {
