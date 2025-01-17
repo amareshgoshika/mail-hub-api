@@ -27,7 +27,8 @@ router.post('/register', async (req, res) => {
       email,
       phone,
       password,
-      credits: parseInt('100', 10),
+      credits: parseInt('1', 10),
+      pricingPlan: "basic",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -81,12 +82,28 @@ router.get('/get-user-details', async (req, res) => {
 
     const user = userSnapshot.docs[0].data();
 
-    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone });
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
+router.get('/get-user-accounts', async (req, res) => {
+  try {
+    const { planName } = req.query;
+
+    const pricingSnapshot = await db.collection('pricingPlans').where('name', '==', planName).get();
+    if (pricingSnapshot.empty) {
+      return res.status(400).json({ message: 'No pricing plan available' });
+    }
+    const pricingPlanData = pricingSnapshot.docs[0].data();
+
+    res.json({price: pricingPlanData.price, emailsPerDay: pricingPlanData.emailsPerDay, emailsPerMonth: pricingPlanData.emailsPerMonth,  });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

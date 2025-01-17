@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const homeApi = require('./home-api');
 const userApi = require('./user-api');
 const mailFormatsAPI = require('./mail-formats');
 const fs = require('fs');
@@ -31,10 +32,11 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
 app.use('/mailformats', mailFormatsAPI);
+app.use('/home', homeApi);
 
-const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
-const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
+const upload = multer({ dest: '/var/data/resumes' });
 const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
+const persistentDiskPath = '/var/data/resumes';
 
 const SCOPES = ['https://mail.google.com/'];
 
@@ -45,8 +47,8 @@ if (!fs.existsSync(TOKEN_DIR)) {
 }
 
 async function getService(userEmail) {
-  const credentialsFile = path.join(__dirname, 'uploads', userEmail, 'credentials.json');
-  const tokenFile = path.join(__dirname, 'uploads', userEmail, 'token.pickle');
+  const credentialsFile = path.join(persistentDiskPath, userEmail, 'credentials.json');
+  const tokenFile = path.join(persistentDiskPath, userEmail, 'token.pickle');
 
   if (!fs.existsSync(credentialsFile)) {
     throw new Error("Credentials file 'credentials.json' not found. Upload it first.");
@@ -72,8 +74,7 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   }
 
   const { email } = req.body;
-
-  const folderPath = path.join(__dirname, 'uploads', email);
+  const folderPath = path.join(persistentDiskPath, email);
 
   fs.mkdir(folderPath, { recursive: true }, (mkdirErr) => {
     if (mkdirErr) {
@@ -100,8 +101,8 @@ app.post('/authenticate', async (req, res) => {
       return res.status(400).json({ error: 'Email is required.' });
     }
 
-    const userDir = path.join(__dirname, 'uploads', email);
-    const credentialsFile = path.join(userDir, 'credentials.json');
+    const userDirPersistentDisk = path.join(persistentDiskPath, email);
+    const credentialsFile = path.join(userDirPersistentDisk, 'credentials.json');
 
     if (!fs.existsSync(credentialsFile)) {
       return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
@@ -131,8 +132,19 @@ app.get('/callback', async (req, res) => {
   }
 
   try {
-    const userDir = path.join(__dirname, 'uploads', email);
-    const credentialsFile = path.join(userDir, 'credentials.json');
+    const persistentDiskPath = '/var/data/resumes';
+    const userDirPersistentDisk = path.join(persistentDiskPath, email);
+    const credentialsFile = path.join(userDirPersistentDisk, 'credentials.json');
+
+    if (!fs.existsSync(userDirPersistentDisk)) {
+      try {
+        fs.mkdirSync(userDirPersistentDisk, { recursive: true });
+      } catch (dirError) {
+        console.error('Directory creation failed:', dirError);
+        return res.status(500).json({ error: 'Failed to create directory on persistent disk' });
+      }
+    }
+
     const credentials = JSON.parse(fs.readFileSync(credentialsFile));
     const { client_secret, client_id } = credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
@@ -140,9 +152,7 @@ app.get('/callback', async (req, res) => {
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    const tokenFilePath = path.join(userDir, 'token.pickle');
-
-    fs.writeFileSync(path.join(userDir, 'token.pickle'), JSON.stringify(tokens));
+    fs.writeFileSync(path.join(userDirPersistentDisk, 'token.pickle'), JSON.stringify(tokens));
 
     res.send(`
       <html>
@@ -159,81 +169,6 @@ app.get('/callback', async (req, res) => {
     
   } catch (error) {
     console.error('Error in /callback:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/updateToken', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required.' });
-    }
-
-    const dashboardURL = process.env.REACT_APP_FRONTEND_DASHBOARD_URL;
-    const userDir = path.join(__dirname, 'uploads', email);
-    const credentialsFile = path.join(userDir, 'credentials.json');
-
-    if (!fs.existsSync(credentialsFile)) {
-      return res.status(400).json({ error: "Credentials file not found. Upload 'credentials.json' first." });
-    }
-
-    const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id} = credentials.web;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, dashboardURL);
-
-    const authUrl = oAuth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: SCOPES,
-      state: email
-    });
-
-    res.json({ authUrl, email });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/download', (req, res) => {
-  const { filePath } = req.query;
-
-  if (!filePath) {
-    return res.status(400).send('File path is missing.');
-  }
-
-  fs.access(filePath, fs.constants.F_OK, (err) => {
-    if (err) {
-      console.error('File not found:', filePath);
-      return res.status(404).send('File not found.');
-    }
-
-    res.download(filePath, 'token.pickle', (err) => {
-      if (err) {
-        console.error('Error during download:', err);
-        res.status(500).send('Error during file download.');
-      }
-    });
-  });
-});
-
-
-app.post('/save-token', async (req, res) => {
-  try {
-    const code = req.body.code;
-    const credentialsFile = path.join(__dirname, 'credentials.json');
-    const tokenFile = path.join(TOKEN_DIR, 'token.pickle');
-
-    const credentials = JSON.parse(fs.readFileSync(credentialsFile));
-    const { client_secret, client_id } = credentials.web;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
-
-    const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens);
-
-    // Save the token in the 'tokens' directory
-    fs.writeFileSync(tokenFile, JSON.stringify(tokens));
-    res.json({ message: 'Token saved successfully' });
-  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -256,8 +191,14 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
     const userRef = userQuerySnapshot.docs[0].ref;
     const user = userQuerySnapshot.docs[0].data();
+    const userPlan = user.pricingPlan;
 
-    if (user.credits <= 0) {
+    const planQuerySnapshot = await db.collection('pricingPlans').where('name', '==', userPlan).get();
+    const plan = planQuerySnapshot.docs[0].data();
+    const emailsPerDay = plan.emailsPerDay;
+    const availableCredits = emailsPerDay - user.credits;
+
+    if (availableCredits == 0) {
       return res.status(400).json({ message: 'No credits available' });
     }
 
@@ -288,7 +229,7 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       const currentCredits = userDoc.data().credits;
 
       if (currentCredits > 0) {
-        transaction.update(userRef, { credits: currentCredits - 1 });
+        transaction.update(userRef, { credits: currentCredits + 1 });
       } else {
         throw new Error('No credits available to deduct');
       }
