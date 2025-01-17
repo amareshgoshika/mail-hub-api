@@ -74,29 +74,31 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   }
 
   const { email } = req.body;
-
   const storagePath = '/var/data/resumes';
   const storageFolder = path.join(storagePath, email);
 
-  // const folderPath = path.join(__dirname, 'uploads', email);
+  try {
+    // Ensure the storage path exists
+    if (!fs.existsSync(storagePath)) {
+      fs.mkdirSync(storagePath, { recursive: true });
+    }
 
-  fs.mkdir(storageFolder, { recursive: true }, (mkdirErr) => {
-    if (mkdirErr) {
-      return res.status(500).json({ error: 'Failed to create user folder' });
+    // Ensure user-specific folder exists
+    if (!fs.existsSync(storageFolder)) {
+      fs.mkdirSync(storageFolder, { recursive: true });
     }
 
     const uploadedPath = req.file.path;
     const newPath = path.join(storageFolder, 'credentials.json');
+    fs.renameSync(uploadedPath, newPath);
 
-    fs.rename(uploadedPath, newPath, (renameErr) => {
-      if (renameErr) {
-        return res.status(500).json({ error: 'Failed to save credentials file' });
-      }
-
-      res.json({ message: 'Credentials uploaded successfully' });
-    });
-  });
+    res.json({ message: 'Credentials uploaded successfully' });
+  } catch (error) {
+    console.error('Error in /upload-credentials:', error);
+    res.status(500).json({ error: 'Failed to upload credentials' });
+  }
 });
+
 
 app.post('/authenticate', async (req, res) => {
   try {
