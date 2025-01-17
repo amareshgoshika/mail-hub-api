@@ -34,7 +34,7 @@ app.use('/api', userApi);
 app.use('/mailformats', mailFormatsAPI);
 app.use('/home', homeApi);
 
-const upload = multer({ dest: 'uploads/' }); // Save credentials on disk
+const upload = multer({ dest: '/var/data/resumes' }); // Save credentials on disk
 const tokenUpload = multer({ storage: multer.memoryStorage() }); // Store token in memory
 const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
 
@@ -74,31 +74,28 @@ app.post('/upload-credentials', upload.single('credentials'), (req, res) => {
   }
 
   const { email } = req.body;
-  const storagePath = '/var/data/resumes';
-  const storageFolder = path.join(storagePath, email);
+  const persistentDiskPath = '/var/data/resumes';
+  const folderPath = path.join(persistentDiskPath, email);
 
-  try {
-    // Ensure the storage path exists
-    if (!fs.existsSync(storagePath)) {
-      fs.mkdirSync(storagePath, { recursive: true });
-    }
+  // const folderPath = path.join(__dirname, 'uploads', email);
 
-    // Ensure user-specific folder exists
-    if (!fs.existsSync(storageFolder)) {
-      fs.mkdirSync(storageFolder, { recursive: true });
+  fs.mkdir(folderPath, { recursive: true }, (mkdirErr) => {
+    if (mkdirErr) {
+      return res.status(500).json({ error: 'Failed to create user folder' });
     }
 
     const uploadedPath = req.file.path;
-    const newPath = path.join(storageFolder, 'credentials.json');
-    fs.renameSync(uploadedPath, newPath);
+    const newPath = path.join(folderPath, 'credentials.json');
 
-    res.json({ message: 'Credentials uploaded successfully' });
-  } catch (error) {
-    console.error('Error in /upload-credentials:', error);
-    res.status(500).json({ error: 'Failed to upload credentials' });
-  }
+    fs.rename(uploadedPath, newPath, (renameErr) => {
+      if (renameErr) {
+        return res.status(500).json({ error: 'Failed to save credentials file' });
+      }
+
+      res.json({ message: 'Credentials uploaded successfully' });
+    });
+  });
 });
-
 
 app.post('/authenticate', async (req, res) => {
   try {
