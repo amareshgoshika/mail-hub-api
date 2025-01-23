@@ -21,7 +21,8 @@
     "googleapis": "^144.0.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.16",
-    "react-scripts": "^5.0.1"
+    "react-scripts": "^5.0.1",
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
