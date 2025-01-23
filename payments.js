@@ -36,7 +36,38 @@ router.post("/checkout-session", async (req, res) => {
 
 router.post('/upgrade-plan', async (req, res) => {
     try {
-      const { senderEmail, planName } = req.body;
+      const { senderEmail, planName, sessionId } = req.body;
+  
+      if (!sessionId) {
+        return res.status(400).json({ message: 'Session ID is required' });
+      }
+  
+      // Retrieve the session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      const invoice = await stripe.invoices.retrieve(session.invoice);
+  
+      // Handle subscription sessions
+      if (session.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+  
+        const price = subscription.items.data[0].plan.amount;
+        const userEmail = senderEmail;
+        const transactionDate = new Date(subscription.created * 1000);
+        const invoiceNumber = invoice.number;
+        const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
+        const paymentsRef = db.collection("payments").doc(invoiceNumber);
+
+        await paymentsRef.set({
+            userEmail: userEmail,
+            planName: planName,
+            price: price,
+            transactionDate: transactionDate,
+            invoiceNumber: invoiceNumber,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(renewalDate);
   
       const userQuerySnapshot = await db.collection('users')
         .where('email', '==', senderEmail)
@@ -45,22 +76,22 @@ router.post('/upgrade-plan', async (req, res) => {
       if (userQuerySnapshot.empty) {
         return res.status(400).json({ message: 'User not found' });
       }
-
-      const userQuery = await db.collection('users').where('email', '==', senderEmail).get();
-      if (!userQuery.empty) {
-        const userDoc = userQuery.docs[0];
-        await userDoc.ref.update({
-          pricingPlan: planName,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log('User plan updated');
-      }
   
-      res.status(201).json({ message: 'User registered successfully' });
+      const userDoc = userQuerySnapshot.docs[0];
+      await userDoc.ref.update({
+        pricingPlan: planName,
+        renewalDate: renewalDate,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log('User plan updated');
+  
+      res.status(201).json({ message: 'User plan updated and subscription details saved successfully' });
+    }
     } catch (error) {
-      console.error('Error during registration:', error);
+      console.error('Error during upgrade:', error);
       res.status(500).json({ message: 'Server error' });
     }
-});
+  });
+  
 
 module.exports = router;

@@ -3,6 +3,7 @@ const multer = require('multer');
 const homeApi = require('./home-api');
 const userApi = require('./user-api');
 const mailFormatsAPI = require('./mail-formats');
+const payments = require('./payments');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
@@ -33,6 +34,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', userApi);
 app.use('/mailformats', mailFormatsAPI);
 app.use('/home', homeApi);
+app.use('/payments', payments);
 
 const upload = multer({ dest: '/var/data/resumes' });
 const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
