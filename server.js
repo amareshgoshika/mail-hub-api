@@ -197,8 +197,8 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
     const planQuerySnapshot = await db.collection('pricingPlans').where('name', '==', userPlan).get();
     const plan = planQuerySnapshot.docs[0].data();
-    const emailsPerDay = plan.emailsPerDay;
-    const availableCredits = emailsPerDay - user.credits;
+    const emailsPerMonth = plan.emailsPerMonth;
+    const availableCredits = emailsPerMonth - user.credits;
 
     if (availableCredits == 0) {
       return res.status(400).json({ message: 'No credits available' });

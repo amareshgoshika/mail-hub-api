@@ -67,7 +67,6 @@ router.post('/upgrade-plan', async (req, res) => {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(renewalDate);
   
       const userQuerySnapshot = await db.collection('users')
         .where('email', '==', senderEmail)
@@ -81,9 +80,9 @@ router.post('/upgrade-plan', async (req, res) => {
       await userDoc.ref.update({
         pricingPlan: planName,
         renewalDate: renewalDate,
+        subscriptionStatus: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log('User plan updated');
   
       res.status(201).json({ message: 'User plan updated and subscription details saved successfully' });
     }
@@ -93,5 +92,29 @@ router.post('/upgrade-plan', async (req, res) => {
     }
   });
   
+router.get('/payment-history', async (req, res) => {
+    try {
+      const { senderEmail } = req.query;
+  
+      if (!senderEmail) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+  
+      const paymentsSnapshot = await db.collection('payments')
+        .where('userEmail', '==', senderEmail)
+        .get();
+  
+      if (paymentsSnapshot.empty) {
+        return res.status(404).json({ message: 'No payment history found' });
+      }
+  
+      const paymentHistory = paymentsSnapshot.docs.map(doc => doc.data());
+  
+      res.status(200).json({ paymentHistory });
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });  
 
 module.exports = router;
