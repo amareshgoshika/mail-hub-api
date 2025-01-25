@@ -93,4 +93,38 @@ router.delete('/delete-mail-format', async (req, res) => {
   }
 });
 
+router.put('/update-mail-format', async (req, res) => {
+  try {
+    const { id, formatName, subject, body, userEmail, attachmentURL } = req.body;
+
+    if (!id || !formatName || !subject || !body || !userEmail) {
+      return res.status(400).json({ message: 'ID, Format Name, Subject, Body, and User Email are required' });
+    }
+
+    const mailFormatRef = db.collection('mailFormats').doc(id);
+    const doc = await mailFormatRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Mail format not found' });
+    }
+
+    const updatedData = {
+      formatName,
+      subject,
+      body,
+      userEmail,
+      attachmentURL: attachmentURL || null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await mailFormatRef.update(updatedData);
+
+    res.status(200).json({ message: 'Mail format updated successfully' });
+  } catch (error) {
+    console.error('Error updating mail format:', error);
+    res.status(500).json({ message: 'Failed to update mail format' });
+  }
+});
+
+
 module.exports = router;

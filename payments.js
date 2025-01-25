@@ -102,6 +102,7 @@ router.get('/payment-history', async (req, res) => {
   
       const paymentsSnapshot = await db.collection('payments')
         .where('userEmail', '==', senderEmail)
+        .orderBy('transactionDate', 'desc')
         .get();
   
       if (paymentsSnapshot.empty) {
