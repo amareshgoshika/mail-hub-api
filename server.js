@@ -215,6 +215,30 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       },
     });
 
+    if (userEmail === "contact.maileazy@gmail.com") {
+      const checkCustomerEmailQuery = await db.collection('customerEmails')
+        .where('recipientEmail', '==', recipientEmail)
+        .get();
+    
+      if (checkCustomerEmailQuery.empty) {
+        await db.collection('customerEmails').add({
+          recipientEmail,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      const checkVendorEmailQuery = await db.collection('vendorEmails')
+        .where('recipientEmail', '==', recipientEmail)
+        .get();
+    
+      if (checkVendorEmailQuery.empty) {
+        await db.collection('vendorEmails').add({
+          recipientEmail,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     const checkVendorEmailQuery = await db.collection('vendorEmails')
       .where('recipientEmail', '==', recipientEmail)
       .get();
