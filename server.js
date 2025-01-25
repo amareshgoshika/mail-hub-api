@@ -239,17 +239,6 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       }
     }
 
-    const checkVendorEmailQuery = await db.collection('vendorEmails')
-      .where('recipientEmail', '==', recipientEmail)
-      .get();
-
-    if (checkVendorEmailQuery.empty) {
-      await db.collection('vendorEmails').add({
-        recipientEmail,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-
     await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       const currentCredits = userDoc.data().credits;
