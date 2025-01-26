@@ -31,6 +31,7 @@ router.post('/register', async (req, res) => {
       pricingPlan: "welcome",
       subscriptionStatus: false,
       renewalDate: "",
+      aiRewrites: parseInt('1', 10),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
