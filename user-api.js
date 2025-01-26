@@ -85,7 +85,7 @@ router.get('/get-user-details', async (req, res) => {
 
     const user = userSnapshot.docs[0].data();
 
-    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus });
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus, aiRewrites: user.aiRewrites });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
@@ -102,7 +102,7 @@ router.get('/get-user-accounts', async (req, res) => {
     }
     const pricingPlanData = pricingSnapshot.docs[0].data();
 
-    res.json({price: pricingPlanData.price, emailsPerDay: pricingPlanData.emailsPerDay, emailsPerMonth: pricingPlanData.emailsPerMonth,  });
+    res.json({price: pricingPlanData.price, emailsPerDay: pricingPlanData.emailsPerDay, emailsPerMonth: pricingPlanData.emailsPerMonth, aiRewrites: pricingPlanData.aiRewrites,  });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
