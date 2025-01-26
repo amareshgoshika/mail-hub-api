@@ -69,6 +69,35 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post("/change-password", async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body;
+
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  try {
+    const userQuerySnapshot = await db.collection("users").where("email", "==", email).get();
+
+    if (userQuerySnapshot.empty) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    const userDoc = userQuerySnapshot.docs[0];
+    const userData = userDoc.data();
+
+    if (currentPassword === userData.password) {
+      await userDoc.ref.update({ password: newPassword });
+      res.status(200).json({ message: "Password changed successfully" });
+    } else {
+      console.error("Error changing password:", error);
+    }
+  } catch (error) {
+    console.error("Error changing password:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.get('/get-user-details', async (req, res) => {
   try {
     const { email } = req.query;
@@ -85,7 +114,7 @@ router.get('/get-user-details', async (req, res) => {
 
     const user = userSnapshot.docs[0].data();
 
-    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus });
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus, aiRewrites: user.aiRewrites, subscriptionId: user.subscriptionId, });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
@@ -102,7 +131,7 @@ router.get('/get-user-accounts', async (req, res) => {
     }
     const pricingPlanData = pricingSnapshot.docs[0].data();
 
-    res.json({price: pricingPlanData.price, emailsPerDay: pricingPlanData.emailsPerDay, emailsPerMonth: pricingPlanData.emailsPerMonth,  });
+    res.json({price: pricingPlanData.price, emailsPerDay: pricingPlanData.emailsPerDay, emailsPerMonth: pricingPlanData.emailsPerMonth, aiRewrites: pricingPlanData.aiRewrites,  });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
