@@ -4,6 +4,7 @@ const homeApi = require('./home-api');
 const userApi = require('./user-api');
 const mailFormatsAPI = require('./mail-formats');
 const payments = require('./payments');
+const rewriteApi = require('./rewrite-api');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
@@ -35,6 +36,7 @@ app.use('/api', userApi);
 app.use('/mailformats', mailFormatsAPI);
 app.use('/home', homeApi);
 app.use('/payments', payments);
+app.use('/rewrite', rewriteApi);
 
 const upload = multer({ dest: '/var/data/resumes' });
 const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
