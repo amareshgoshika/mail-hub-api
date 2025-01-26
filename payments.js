@@ -57,6 +57,7 @@ router.post('/upgrade-plan', async (req, res) => {
         const invoiceNumber = invoice.number;
         const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
         const paymentsRef = db.collection("payments").doc(invoiceNumber);
+        const subscriptionId = subscription.id;
 
         await paymentsRef.set({
             userEmail: userEmail,
@@ -81,6 +82,7 @@ router.post('/upgrade-plan', async (req, res) => {
         pricingPlan: planName,
         renewalDate: renewalDate,
         subscriptionStatus: true,
+        subscriptionId: subscriptionId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
   
@@ -115,6 +117,45 @@ router.get('/payment-history', async (req, res) => {
     } catch (error) {
       console.error('Error fetching payment history:', error);
       res.status(500).json({ message: 'Server error' });
+    }
+  });  
+
+  router.post('/cancel-subscription', async (req, res) => {
+    const { subscriptionId, userEmail } = req.body;
+  
+    try {
+      if (!subscriptionId || !userEmail) {
+        return res.status(400).json({ message: 'Subscription ID and User Email are required' });
+      }
+  
+      const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId);
+  
+      if (canceledSubscription.status !== 'canceled') {
+        return res.status(500).json({ message: 'Failed to cancel subscription in Stripe' });
+      }
+  
+      const userQuerySnapshot = await db.collection('users')
+        .where('email', '==', userEmail)
+        .get();
+  
+      if (userQuerySnapshot.empty) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      const userDoc = userQuerySnapshot.docs[0];
+      await userDoc.ref.update({
+        subscriptionStatus: false,
+        pricingPlan: "welcome",
+        renewalDate: null,
+        credits: parseInt('1', 10),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  
+      res.status(200).json({ message: 'Subscription canceled and user data updated successfully' });
+  
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   });  
 
