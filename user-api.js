@@ -85,7 +85,7 @@ router.get('/get-user-details', async (req, res) => {
 
     const user = userSnapshot.docs[0].data();
 
-    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus, aiRewrites: user.aiRewrites });
+    res.json({ name: user.name, email: user.email, password: user.password, phone: user.phone, credits: user.credits, pricingPlan: user.pricingPlan, renewalDate: user.renewalDate, subscriptionStatus: user.subscriptionStatus, aiRewrites: user.aiRewrites, subscriptionId: user.subscriptionId, });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });
