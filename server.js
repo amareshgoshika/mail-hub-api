@@ -43,9 +43,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       case 'checkout.session.completed': {
         const session = event.data.object;
 
-        if (session.metadata && session.metadata.email) {
-          const customerEmail = session.metadata.email;
-          const subscriptionId = session.subscription;
+        if (session.metadata && session.metadata.userEmail) {
+          const customerEmail = session.metadata.userEmail;
           const planName = session.metadata.planName;
 
           try {
