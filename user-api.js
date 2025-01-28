@@ -82,10 +82,6 @@ router.post('/update-profile', async (req, res) => {
   try {
     const { name, phone, email } = req.body;
 
-    if (!name || !phone) {
-      return res.status(400).json({ message: 'Name and phone are required' });
-    }
-
     const userQuerySnapshot = await db.collection('users')
       .where('email', '==', email)
       .get();
@@ -95,10 +91,14 @@ router.post('/update-profile', async (req, res) => {
     }
 
     const userDoc = userQuerySnapshot.docs[0];
-    await userDoc.ref.update({
-      name,
-      phone,
-    });
+    const userData = userDoc.data();
+
+    const updatedData = {
+      name: name || userData.name,
+      phone: phone || userData.phone,
+    };
+
+    await userDoc.ref.update(updatedData);
 
     res.status(200).json({ message: 'Profile updated successfully' });
   } catch (error) {
