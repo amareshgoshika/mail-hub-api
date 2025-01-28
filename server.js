@@ -83,6 +83,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
             userQuerySnapshot.docs.forEach((doc) => {
               batch.update(doc.ref, {
                 renewalDate: renewalDate,
+                credits: parseInt('1', 10),
+                aiRewrites: parseInt('0', 10),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
               });
             });
@@ -137,6 +139,8 @@ async function upgradePlan({ senderEmail, planName, sessionId }) {
         price: price,
         transactionDate: transactionDate,
         invoiceNumber: invoiceNumber,
+        credits: parseInt('0', 10),
+        aiRewrites: parseInt('0', 10),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
