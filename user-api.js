@@ -78,6 +78,35 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/update-profile', async (req, res) => {
+  try {
+    const { name, phone, email } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ message: 'Name and phone are required' });
+    }
+
+    const userQuerySnapshot = await db.collection('users')
+      .where('email', '==', email)
+      .get();
+
+    if (userQuerySnapshot.empty) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userDoc = userQuerySnapshot.docs[0];
+    await userDoc.ref.update({
+      name,
+      phone,
+    });
+
+    res.status(200).json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.post("/change-password", async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
 
