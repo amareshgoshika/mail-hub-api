@@ -139,8 +139,6 @@ async function upgradePlan({ senderEmail, planName, sessionId }) {
         price: price,
         transactionDate: transactionDate,
         invoiceNumber: invoiceNumber,
-        credits: parseInt('0', 10),
-        aiRewrites: parseInt('0', 10),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -159,6 +157,8 @@ async function upgradePlan({ senderEmail, planName, sessionId }) {
         renewalDate: renewalDate,
         subscriptionStatus: true,
         subscriptionId: subscriptionId,
+        credits: parseInt('0', 10),
+        aiRewrites: parseInt('0', 10),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
