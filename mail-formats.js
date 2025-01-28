@@ -5,11 +5,25 @@ const router = express.Router();
 
 router.post('/save-mail-formats', async (req, res) => {
   try {
-    const { formatName, subject, body, userEmail, attachmentURL  } = req.body;
+    const { formatName, subject, body, userEmail, attachmentURL, isDefault  } = req.body;
 
     // Validate input
     if (!formatName || !subject || !body || !userEmail) {
       return res.status(400).json({ message: 'Format Name, Subject, and Body are required' });
+    }
+
+    if (isDefault) {
+      const batch = db.batch();
+      const querySnapshot = await db.collection('mailFormats')
+        .where('userEmail', '==', userEmail)
+        .get();
+
+      querySnapshot.forEach(doc => {
+        const docRef = doc.ref;
+        batch.update(docRef, { isDefault: false });
+      });
+
+      await batch.commit();
     }
 
     // Save mail format to Firestore
@@ -19,6 +33,7 @@ router.post('/save-mail-formats', async (req, res) => {
       body,
       userEmail,
       attachmentURL: attachmentURL || null,
+      isDefault: isDefault || false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -95,7 +110,7 @@ router.delete('/delete-mail-format', async (req, res) => {
 
 router.put('/update-mail-format', async (req, res) => {
   try {
-    const { id, formatName, subject, body, userEmail, attachmentURL } = req.body;
+    const { id, formatName, subject, body, userEmail, attachmentURL, isDefault } = req.body;
 
     if (!id || !formatName || !subject || !body || !userEmail) {
       return res.status(400).json({ message: 'ID, Format Name, Subject, Body, and User Email are required' });
@@ -108,6 +123,20 @@ router.put('/update-mail-format', async (req, res) => {
       return res.status(404).json({ message: 'Mail format not found' });
     }
 
+    if (isDefault) {
+      const batch = db.batch();
+      const querySnapshot = await db.collection('mailFormats')
+        .where('userEmail', '==', userEmail)
+        .get();
+
+      querySnapshot.forEach(doc => {
+        const docRef = doc.ref;
+        batch.update(docRef, { isDefault: false });
+      });
+
+      await batch.commit();
+    }
+
     const updatedData = {
       formatName,
       subject,
@@ -115,6 +144,7 @@ router.put('/update-mail-format', async (req, res) => {
       userEmail,
       attachmentURL: attachmentURL || null,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      isDefault: isDefault || false,
     };
 
     await mailFormatRef.update(updatedData);
