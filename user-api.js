@@ -1,5 +1,6 @@
 const express = require('express');
 const admin = require('firebase-admin');
+const bcrypt = require('bcrypt');
 const { db } = require('./firebase-admin'); // Import Firebase Admin
 const router = express.Router();
 
@@ -21,12 +22,15 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User is already registered' });
     }
 
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // Save user data to Firestore along with the Google Drive file URL
     await db.collection('users').add({
       name,
       email,
       phone,
-      password,
+      password: hashedPassword,
       credits: parseInt('1', 10),
       pricingPlan: "welcome",
       subscriptionStatus: false,
@@ -58,7 +62,9 @@ router.post('/login', async (req, res) => {
 
     const user = userSnapshot.docs[0].data();
 
-    if (password !== user.password) {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -85,13 +91,17 @@ router.post("/change-password", async (req, res) => {
 
     const userDoc = userQuerySnapshot.docs[0];
     const userData = userDoc.data();
+    const isPasswordValid = await bcrypt.compare(currentPassword, userData.password);
 
-    if (currentPassword === userData.password) {
-      await userDoc.ref.update({ password: newPassword });
-      res.status(200).json({ message: "Password changed successfully" });
-    } else {
-      console.error("Error changing password:", error);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
     }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    await userDoc.ref.update({ password: hashedNewPassword });
+    res.status(200).json({ message: "Password changed successfully" });
+    
   } catch (error) {
     console.error("Error changing password:", error);
     res.status(500).json({ message: "Internal server error" });
