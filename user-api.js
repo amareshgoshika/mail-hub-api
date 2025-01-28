@@ -1,6 +1,9 @@
 const express = require('express');
 const admin = require('firebase-admin');
-const bcrypt = require('bcrypt');
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
+const nodemailer = require("nodemailer");
+const jwt = require('jsonwebtoken');
 const { db } = require('./firebase-admin'); // Import Firebase Admin
 const router = express.Router();
 
@@ -105,6 +108,102 @@ router.post("/change-password", async (req, res) => {
   } catch (error) {
     console.error("Error changing password:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    const userSnapshot = await db.collection("users").where("email", "==", email).get();
+
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpiry = Date.now() + 3600000;
+
+    await userDoc.ref.update({
+      resetToken,
+      tokenExpiry,
+    });
+
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: "contact.maileazy@gmail.com",
+        pass: "jxep mfpl vlle unfz",
+      },
+    });
+
+    const resetLink = `${process.env.REACT_APP_FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const mailOptions = {
+      from: "contact.maileazy@gmail.com",
+      to: email,
+      subject: "Password Reset",
+      text: `You requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nIf you didn't request this, please ignore this email.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Error sending reset email:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.get("/reset-password/:token", async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const userSnapshot = await db.collection("users").where("resetToken", "==", token).get();
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const tokenExpiry = userDoc.data().tokenExpiry;
+
+    if (Date.now() > tokenExpiry) {
+      return res.status(400).json({ message: "Token has expired" });
+    }
+
+    res.status(200).json({ message: "Token is valid", email: userDoc.data().email });
+  } catch (error) {
+    res.status(400).json({ message: "Error verifying token" });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    const userSnapshot = await db.collection("users").where("resetToken", "==", token).get();
+    if (userSnapshot.empty) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const tokenExpiry = userDoc.data().tokenExpiry;
+
+    if (Date.now() > tokenExpiry) {
+      return res.status(400).json({ message: "Token has expired" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await userDoc.ref.update({ password: hashedPassword, resetToken: null, tokenExpiry: null });
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(400).json({ message: "Error updating password" });
   }
 });
 
