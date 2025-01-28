@@ -12,9 +12,122 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const { db } = require('./firebase-admin');
 const admin = require('firebase-admin');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = 8000;
+
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error(`Webhook signature verification failed: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log(`Received event: ${event.type}`);
+
+  const handleEvent = async () => {
+    switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object;
+        console.log(`PaymentIntent succeeded: ${paymentIntent.id}`);
+        break;
+      }
+
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+
+        if (session.metadata && session.metadata.email) {
+          const customerEmail = session.metadata.email;
+          const subscriptionId = session.subscription;
+          const planName = session.metadata.planName;
+
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
+
+            const userQuerySnapshot = await admin.firestore().collection('users')
+              .where('email', '==', customerEmail)
+              .get();
+
+            if (!userQuerySnapshot.empty) {
+              const batch = admin.firestore().batch();
+              userQuerySnapshot.docs.forEach((doc) => {
+                batch.update(doc.ref, {
+                  pricingPlan: planName,
+                  renewalDate: renewalDate,
+                  subscriptionStatus: true,
+                  subscriptionId: subscription.id,
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+              });
+              await batch.commit();
+              console.log(`User profile updated for ${customerEmail}`);
+            }
+          } catch (err) {
+            console.error(`Error handling session completion: ${err.message}`);
+            throw err;
+          }
+        } else {
+          console.error('Missing metadata in session.');
+          throw new Error('Invalid session metadata');
+        }
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+
+        try {
+          const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+          const customer = await stripe.customers.retrieve(invoice.customer);
+          const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
+
+          const userQuerySnapshot = await admin.firestore().collection('users')
+            .where('email', '==', customer.email)
+            .get();
+
+          if (!userQuerySnapshot.empty) {
+            const batch = admin.firestore().batch();
+            userQuerySnapshot.docs.forEach((doc) => {
+              batch.update(doc.ref, {
+                renewalDate: renewalDate,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            });
+            await batch.commit();
+            console.log(`Renewal date updated for ${customer.email}`);
+          }
+        } catch (err) {
+          console.error(`Error processing invoice: ${err.message}`);
+          throw err;
+        }
+        break;
+      }
+
+      default:
+        console.warn(`Unhandled event type: ${event.type}`);
+        await admin.firestore().collection('unhandledWebhookEvents').add({
+          eventType: event.type,
+          payload: event,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+  };
+
+  try {
+    await handleEvent();
+    res.json({ received: true });
+  } catch (err) {
+    res.status(500).send('Internal Server Error');
+  }
+});
 
 const corsOptions = {
   origin: function (origin, callback) {
