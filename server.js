@@ -49,27 +49,13 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
           const planName = session.metadata.planName;
 
           try {
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-            const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
 
-            const userQuerySnapshot = await admin.firestore().collection('users')
-              .where('email', '==', customerEmail)
-              .get();
+            await upgradePlan({
+              senderEmail: customerEmail,
+              planName: planName,
+              sessionId: session.id,
+            });
 
-            if (!userQuerySnapshot.empty) {
-              const batch = admin.firestore().batch();
-              userQuerySnapshot.docs.forEach((doc) => {
-                batch.update(doc.ref, {
-                  pricingPlan: planName,
-                  renewalDate: renewalDate,
-                  subscriptionStatus: true,
-                  subscriptionId: subscription.id,
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-              });
-              await batch.commit();
-              console.log(`User profile updated for ${customerEmail}`);
-            }
           } catch (err) {
             console.error(`Error handling session completion: ${err.message}`);
             throw err;
@@ -128,6 +114,58 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     res.status(500).send('Internal Server Error');
   }
 });
+
+async function upgradePlan({ senderEmail, planName, sessionId }) {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const invoice = await stripe.invoices.retrieve(session.invoice);
+
+    if (session.subscription) {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      const price = subscription.items.data[0].plan.amount;
+      const userEmail = senderEmail;
+      const transactionDate = new Date(subscription.created * 1000);
+      const invoiceNumber = invoice.number;
+      const renewalDate = new Date(subscription.current_period_end * 1000).toISOString().split('T')[0];
+
+      const paymentsRef = db.collection("payments").doc(invoiceNumber);
+      const subscriptionId = subscription.id;
+
+      // Save payment information
+      await paymentsRef.set({
+        userEmail: userEmail,
+        planName: planName,
+        price: price,
+        transactionDate: transactionDate,
+        invoiceNumber: invoiceNumber,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      const userQuerySnapshot = await db.collection('users')
+        .where('email', '==', senderEmail)
+        .get();
+
+      if (userQuerySnapshot.empty) {
+        throw new Error('User not found');
+      }
+
+      const userDoc = userQuerySnapshot.docs[0];
+      await userDoc.ref.update({
+        pricingPlan: planName,
+        renewalDate: renewalDate,
+        subscriptionStatus: true,
+        subscriptionId: subscriptionId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log('User plan updated and subscription details saved successfully');
+    }
+  } catch (error) {
+    console.error('Error during upgrade:', error);
+    throw new Error('Server error during plan upgrade');
+  }
+}
 
 const corsOptions = {
   origin: function (origin, callback) {
