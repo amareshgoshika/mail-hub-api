@@ -6,6 +6,57 @@ const nodemailer = require("nodemailer");
 const jwt = require('jsonwebtoken');
 const { db } = require('./firebase-admin'); // Import Firebase Admin
 const router = express.Router();
+const path = require('path');
+const { google } = require('googleapis');
+const fs = require('fs');
+
+const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
+const persistentDiskPath = '/var/data/resumes';
+
+async function getService(adminMail) {
+  const credentialsFile = path.join(persistentDiskPath, adminMail, 'credentials.json');
+  const tokenFile = path.join(persistentDiskPath, adminMail, 'token.pickle');
+
+  if (!fs.existsSync(credentialsFile)) {
+    throw new Error("Credentials file 'credentials.json' not found. Upload it first.");
+  }
+
+  const credentials = JSON.parse(fs.readFileSync(credentialsFile));
+  const { client_secret, client_id} = credentials.web;
+  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
+
+  if (fs.existsSync(tokenFile)) {
+    const token = fs.readFileSync(tokenFile);
+    oAuth2Client.setCredentials(JSON.parse(token));
+  } else {
+    throw new Error('Token not found. Authenticate first.');
+  }
+
+  return google.gmail({ version: 'v1', auth: oAuth2Client });
+}
+  
+function createEmail(adminMail, name, email, emailBody) {
+  const boundary = "__boundary__";
+  const staticFromName = "MailEazy Notifications";
+
+  const messageParts = [
+    `From: "${staticFromName}" <${email}>`,
+    `To: ${adminMail}`,
+    `Subject: ${name}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    emailBody,
+    '',
+  ];
+
+  messageParts.push(`--${boundary}--`);
+  return Buffer.from(messageParts.join('\r\n')).toString('base64');
+}
 
 // POST /register endpoint
 router.post('/register', async (req, res) => {
@@ -41,6 +92,23 @@ router.post('/register', async (req, res) => {
       aiRewrites: parseInt('1', 10),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    const adminMail = "contact.maileazy@gmail.com";
+    const emailBody = `
+                    Congratulations! A new user has registered into MailEazy.<br>
+                    <b>Name:</b> ${name}<br>
+                    <b>Email:</b> ${email}<br>
+                    <b>Phone:</b> ${phone}
+                  `;
+                      const service = await getService(adminMail);
+    const rawMessage = createEmail(adminMail, "NR: " + name + " " + email, email, emailBody);
+      
+      const response = await service.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: rawMessage,
+        },
+      });
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
