@@ -331,6 +331,74 @@ app.get('/callback', async (req, res) => {
   }
 });
 
+app.get('/vendor-emails-collection', async (req, res) => {
+  const userEmail = req.query.email;
+  try {
+
+    const adminEmailsQuery = await db.collection('adminEmails').get();
+    const adminEmails = adminEmailsQuery.docs[0].data();
+    
+    if(userEmail == adminEmails.adminEmail) {
+
+      const snapshot = await db.collection('customerEmails')
+          .orderBy('createdAt', 'asc')
+          .get();
+      const emails = snapshot.docs.map(doc => doc.data().recipientEmail);
+      if (emails.length === 0) {
+        return res.json({ mailingLists: [] });
+      }
+
+    const mailingLists = emails.reduce((acc, email, index) => {
+      const listIndex = Math.floor(index / 1000);
+      if (!acc[listIndex]) {
+        acc[listIndex] = { name: `Mailing List ${listIndex + 1}`, emails: [] };
+      }
+      acc[listIndex].emails.push(email);
+      return acc;
+    }, []);
+
+    res.json({ mailingLists });
+
+    } else {
+        const userQuerySnapshot = await db.collection('users')
+          .where('email', '==', userEmail)
+          .get();
+        const user = userQuerySnapshot.docs[0].data();
+        const purchasedVendorList = user.purchasedVendorList;
+
+        if (purchasedVendorList === 0) {
+          return res.json({ mailingLists: [] });
+        }
+
+        const snapshot = await db.collection('vendorEmails')
+          .orderBy('createdAt', 'asc')
+          .limit(purchasedVendorList)
+          .get();
+        
+        const emails = snapshot.docs.map(doc => doc.data().recipientEmail);
+
+        if (emails.length === 0) {
+          return res.json({ mailingLists: [] });
+        }
+
+    const mailingLists = emails.reduce((acc, email, index) => {
+      const listIndex = Math.floor(index / 1000);
+      if (!acc[listIndex]) {
+        acc[listIndex] = { name: `Mailing List ${listIndex + 1}`, emails: [] };
+      }
+      acc[listIndex].emails.push(email);
+      return acc;
+    }, []);
+
+    res.json({ mailingLists });
+      }
+
+  } catch (error) {
+    console.error("Error fetching vendor emails:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 app.post('/send-email', upload.single('attachment'), async (req, res) => {
   try {
     const { recipientEmail, subject, emailBody, userEmail } = req.body;
@@ -371,7 +439,10 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
       },
     });
 
-    if (userEmail === "contact.maileazy@gmail.com") {
+    const adminEmailsQuery = await db.collection('adminEmails').get();
+    const adminEmails = adminEmailsQuery.docs[0].data();
+
+    if (userEmail === adminEmails.adminEmail) {
       const checkCustomerEmailQuery = await db.collection('customerEmails')
         .where('recipientEmail', '==', recipientEmail)
         .get();
