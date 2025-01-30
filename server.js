@@ -364,7 +364,7 @@ app.get('/vendor-emails-collection', async (req, res) => {
           .where('email', '==', userEmail)
           .get();
         const user = userQuerySnapshot.docs[0].data();
-        const purchasedVendorList = user.purchasedVendorList;
+        let purchasedVendorList = parseInt(user.purchasedVendorList, 10) || 0;
 
         if (purchasedVendorList === 0) {
           return res.json({ mailingLists: [] });
@@ -430,7 +430,7 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
     // Send email
     const service = await getService(userEmail);
-    const rawMessage = createEmail(recipientEmail, subject, emailBody, attachment);
+    const rawMessage = createEmail(recipientEmail, subject, emailBody, attachment, user.name, userEmail);
     
     const response = await service.users.messages.send({
       userId: 'me',
@@ -483,10 +483,11 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
   }
 });
 
-function createEmail(recipientEmail, subject, emailBody, attachment) {
+function createEmail(recipientEmail, subject, emailBody, attachment, name, userEmail) {
   const boundary = "__boundary__";
 
   const messageParts = [
+    `From: "${name}" <${userEmail}>`,
     `To: ${recipientEmail}`,
     `Subject: ${subject}`,
     `MIME-Version: 1.0`,
