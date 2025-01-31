@@ -105,6 +105,55 @@ router.post('/save-vendor-emails', async (req, res) => {
       res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
   });
+
+  router.get("/search-user", async (req, res) => {
+    const { email } = req.query;
   
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+  
+    try {
+      const userSnapshot = await db.collection("users").where("email", "==", email).get();
+  
+      if (userSnapshot.empty) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+  
+      let userData;
+      userSnapshot.forEach((doc) => {
+        userData = { id: doc.id, ...doc.data() };
+      });
+
+
+      const userPaymentSnapshot = await db.collection("payments").where("userEmail", "==", email).get();
+
+      let userPayments = [];
+      if (!userPaymentSnapshot.empty) {
+        userPaymentSnapshot.forEach((doc) => {
+          userPayments.push({ id: doc.id, ...doc.data() });
+        });
+      }
+  
+      res.json({ success: true, user: userData, userPayments: userPayments });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+  });
+
+  router.get("/list-of-users", async (req, res) => {
+    try {
+      const usersCollection = await db.collection("users").get();
+      const users = usersCollection.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+      }));
+      res.status(200).json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
 
 module.exports = router;
