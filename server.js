@@ -192,6 +192,7 @@ app.use('/mailformats', mailFormatsAPI);
 app.use('/home', homeApi);
 app.use('/payments', payments);
 app.use('/rewrite', rewriteApi);
+app.use('/admin', adminAPI);
 
 const upload = multer({ dest: '/var/data/resumes' });
 const redirect_uri = process.env.REACT_APP_REDIRECT_URL;
