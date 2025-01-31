@@ -5,6 +5,7 @@ const userApi = require('./user-api');
 const mailFormatsAPI = require('./mail-formats');
 const payments = require('./payments');
 const rewriteApi = require('./rewrite-api');
+const adminAPI = require('./admin-api');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
