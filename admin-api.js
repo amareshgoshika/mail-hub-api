@@ -106,6 +106,47 @@ router.post('/save-vendor-emails', async (req, res) => {
     }
   });
 
+  router.post('/save-benchsales-emails', async (req, res) => {
+    const { emails } = req.body;
+  
+    if (!emails || emails.length === 0) {
+      return res.status(400).json({ success: false, message: "No emails provided" });
+    }
+  
+    try {
+      const emailsRef = db.collection('benchsalesEmails');
+      const batch = db.batch();
+      const uniqueEmails = new Set();
+  
+      const snapshot = await emailsRef.get();
+      snapshot.forEach((doc) => {
+        uniqueEmails.add(doc.data().recipientEmail);
+      });
+  
+      let newEmails = 0;
+      emails.forEach((email) => {
+        if (!uniqueEmails.has(email)) {
+          const emailDoc = emailsRef.doc();
+          batch.set(emailDoc, {
+            recipientEmail: email,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          uniqueEmails.add(email);
+          newEmails++;
+        }
+      });
+  
+      if (newEmails > 0) {
+        await batch.commit();
+      }
+  
+      res.json({ success: true, message: `${newEmails} new emails successfully saved to Firebase` });
+    } catch (error) {
+      console.error("Error saving emails:", error);
+      res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+  });
+
   router.get("/search-user", async (req, res) => {
     const { email } = req.query;
   
