@@ -342,24 +342,31 @@ app.get('/vendor-emails-collection', async (req, res) => {
     
     if(userEmail == adminEmails.adminEmail) {
 
-      const snapshot = await db.collection('customerEmails')
-          .orderBy('createdAt', 'asc')
-          .get();
-      const emails = snapshot.docs.map(doc => doc.data().recipientEmail);
-      if (emails.length === 0) {
-        return res.json({ mailingLists: [] });
-      }
+      const customerSnapshot = await db.collection('customerEmails')
+      .orderBy('createdAt', 'asc')
+      .get();
+      const customerEmails = customerSnapshot.docs.map(doc => doc.data().recipientEmail);
 
-    const mailingLists = emails.reduce((acc, email, index) => {
-      const listIndex = Math.floor(index / 1000);
-      if (!acc[listIndex]) {
-        acc[listIndex] = { name: `Mailing List ${listIndex + 1}`, emails: [] };
-      }
-      acc[listIndex].emails.push(email);
-      return acc;
-    }, []);
+      const benchsalesSnapshot = await db.collection('benchsalesEmails')
+        .orderBy('createdAt', 'asc')
+        .get();
+      const benchsalesEmails = benchsalesSnapshot.docs.map(doc => doc.data().recipientEmail);
 
-    res.json({ mailingLists });
+      const groupEmails = (emails, prefix) => {
+        return emails.reduce((acc, email, index) => {
+          const listIndex = Math.floor(index / 1000);
+          if (!acc[listIndex]) {
+            acc[listIndex] = { name: `${prefix} ${listIndex + 1}`, emails: [] };
+          }
+          acc[listIndex].emails.push(email);
+          return acc;
+        }, []);
+      };
+
+      const mailingLists = groupEmails(customerEmails, 'Candidates');
+      const bseLists = groupEmails(benchsalesEmails, 'BSE');
+
+      res.json({ mailingLists: [...mailingLists, ...bseLists] });
 
     } else {
         const userQuerySnapshot = await db.collection('users')
