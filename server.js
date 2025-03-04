@@ -416,8 +416,14 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
     if (!recipientEmail || !subject || !emailBody) {
       return res.status(400).json({ error: 'Recipient email, subject, and email body are required' });
     }
+    const extractName = (email) => {
+      let namePart = email.split('@')[0]; 
+      let name = namePart.split('.')[0];
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    };
 
-    // Fetch user and check credits
+    const recipientName = extractName(recipientEmail);
+
     const userQuerySnapshot = await db.collection('users').where('email', '==', userEmail).get();
     
     if (userQuerySnapshot.empty) {
@@ -439,7 +445,7 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
 
     // Send email
     const service = await getService(userEmail);
-    const rawMessage = createEmail(recipientEmail, subject, emailBody, attachment, user.name, userEmail);
+    const rawMessage = createEmail(recipientEmail, recipientName, subject, emailBody, attachment, user.name, userEmail);
     
     const response = await service.users.messages.send({
       userId: 'me',
@@ -496,8 +502,9 @@ app.post('/send-email', upload.single('attachment'), async (req, res) => {
   }
 });
 
-function createEmail(recipientEmail, subject, emailBody, attachment, name, userEmail) {
+function createEmail(recipientEmail, recipientName, subject, emailBody, attachment, name, userEmail) {
   const boundary = "__boundary__";
+  const modifiedBody = `Hi ${recipientName}, ${emailBody}`;
 
   const messageParts = [
     `From: "${name}" <${userEmail}>`,
@@ -510,7 +517,7 @@ function createEmail(recipientEmail, subject, emailBody, attachment, name, userE
     `Content-Type: text/html; charset="UTF-8"`,
     'Content-Transfer-Encoding: 7bit',
     '',
-    emailBody,
+    modifiedBody,
     '',
   ];
 
